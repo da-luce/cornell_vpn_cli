@@ -8,7 +8,9 @@ import (
 	"runtime"
 	"strings"
 	"syscall"
+	"time"
 
+	"github.com/briandowns/spinner"
 	"github.com/urfave/cli/v3"
 	"golang.org/x/term"
 )
@@ -107,14 +109,28 @@ func getPassword(prompt string) (string, error) {
 
 // connectVPN connects to the VPN
 func connectVPN(vpnExec, host, username, method string, verbose bool) error {
+	// Start spinner for connection process
+	s := spinner.New(spinner.CharSets[14], 100*time.Millisecond)
+	s.Suffix = " Checking VPN Status..."
+	s.Start()
+	defer s.Stop()
+
 	if vpnConnected(vpnExec) {
 		return fmt.Errorf("VPN is already connected")
 	}
+
+	s.Stop()
 
 	password, err := getPassword("Enter VPN password: ")
 	if err != nil {
 		return fmt.Errorf("failed to read password: %v", err)
 	}
+
+	// FIXME: this text is interrupted by the Duo (push/sms/phone): thing
+	// s = spinner.New(spinner.CharSets[14], 100*time.Millisecond)
+	// s.Suffix = " Connecting to VPN..."
+	// s.Start()
+	// defer s.Stop()
 
 	// Create the script for VPN connection like Python version
 	script := fmt.Sprintf("connect %s\n%s\n%s\n%s\ny\nexit\n", host, username, password, method)
@@ -123,6 +139,7 @@ func connectVPN(vpnExec, host, username, method string, verbose bool) error {
 	cmd.Stdin = strings.NewReader(script)
 
 	if verbose {
+		// s.Stop() // Stop spinner if verbose mode to show VPN output
 		cmd.Stdout = os.Stdout
 		cmd.Stderr = os.Stderr
 	}
@@ -142,15 +159,32 @@ func connectVPN(vpnExec, host, username, method string, verbose bool) error {
 
 // disconnectVPN disconnects from the VPN
 func disconnectVPN(vpnExec string, verbose bool) error {
+
+	// FIXME: this code is duplicated
+	// Start spinner for connection process
+	s := spinner.New(spinner.CharSets[14], 100*time.Millisecond)
+	s.Suffix = " Checking VPN Status..."
+	s.Start()
+	defer s.Stop()
+
 	if !vpnConnected(vpnExec) {
-		return fmt.Errorf("VPN is not connected")
+		return fmt.Errorf("VPN is not connected.")
 	}
+
+	s.Stop()
+
+	// Start spinner for connection process
+	s = spinner.New(spinner.CharSets[14], 100*time.Millisecond)
+	s.Suffix = " Disconnecting from VPN..."
+	s.Start()
+	defer s.Stop()
 
 	script := "disconnect\nexit\n"
 	cmd := exec.Command(vpnExec, "-s")
 	cmd.Stdin = strings.NewReader(script)
 
 	if verbose {
+		s.Stop() // Stop spinner if verbose mode to show VPN output
 		cmd.Stdout = os.Stdout
 		cmd.Stderr = os.Stderr
 	}
@@ -230,7 +264,16 @@ func statusAction(ctx context.Context, cmd *cli.Command) error {
 		return err
 	}
 
+	// FIXME: this code is duplicated
+	// Start spinner for connection process
+	s := spinner.New(spinner.CharSets[14], 100*time.Millisecond)
+	s.Suffix = " Checking VPN Status..."
+	s.Start()
+	defer s.Stop()
+
 	connected := vpnConnected(vpnExec)
+
+	s.Stop()
 	if connected {
 		fmt.Println("VPN Connected: Yes")
 	} else {
